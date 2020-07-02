@@ -1,0 +1,601 @@
+
+<!doctype html>
+<!-- Inspired by the work of San Bernardino Valley College
+http://faculty.valleycollege.edu/rpowell/jscript/subnet2.htm
+Modified by David Lowe david@daines-advisory.com
+- Added the Next Subnet line item, December 20, 2013
+- Converted to HTML 5 format and added CSS elements
+Modified by Brian McMurry (Brian.McMurray@sonoma-county.org) 01/19/2016
+- added ability to enter your own ip address problem
+- fixed the class-a calculation bug
+- added display of the magic number at the top.
+v1.3 Modified by Ed Harmoush (ed@pracnet.net) 03/17/2016
+- added versioning, this is v1.3 (three documented changes since release)
+- shrunk font size
+- removed display of magic number at the top.
+- added maxlength of 3 in each octect field
+- added IP Octet box auto-jump when maxlength digits were enterred
+- added smart-focus so problems and boxes can be done entirely with keyboard
+v1.4 Modified by Ed Harmoush (ed@pracnet.net) 03/07/2018
+- removed jump to next box, it was hoaxy
+v1.5 Modified by Ed harmoush (ed@pracnet.net) 04/23/2018
+- simplified CSS / styling
+- added "type:tel" to all input boxes so numerical keyboard appears on mobile
+- added jump to next box when "." or "/" was pressed in any userinput boxes
+- added Enter action to show all or check all 
+- Problems can now be worked ENTIRELY with Keyboard (and it isn't hoaxy like v1.3)
+- added "disabled" to non userinput boxes 
+
+-->
+<html lang="en">
+    <head>
+        <title>IPv4 Subnetting Practice</title>
+        <style>
+            html {
+                -webkit-text-size-adjust:100%;
+                -moz-text-size-adjust:100%;
+                text-size-adjust:100%;
+            }
+            body {
+                font-family: sans-serif;
+            }
+
+            input {
+                font-family: monospace;
+            }
+        </style>
+
+        <script language="javascript" type="text/javascript">
+{% comment %} const express = require('express')
+const app = express()
+const port = 3000 {% endcomment %}
+            // Create global variable which contains current focused user input box
+            var uiCurrent;
+            var uiNext;
+            var uiNames = [];
+
+
+            //Function for every Key Press to update uiCurrent and uiNext variables
+            function uiInput(currentinput) {
+                uiCurrent = currentinput.name;
+                uiCurrentIndex = uiNames.indexOf(uiCurrent);
+
+                if (uiCurrentIndex == (uiNames.length - 1)) {
+                    // last uiBox reached, loop to first
+                    uiNext = uiNames[0];
+                } else {
+                    // else, set uiNext to next element in uiNames
+                    uiNext = uiNames[uiCurrentIndex + 1];
+                }
+            }
+
+            // Function to jump to next box on . or / keys
+            function jumpdot(event) {
+                // Capture pressed key:
+                var y = event.key;
+
+                if (y == "." || y == "/" ) {
+                    // . or / was pressed, jump to next userinput box and prevent typing of . or /
+                    event.preventDefault();
+                    document.getElementsByName(uiNext)[0].focus();
+                } 
+            }
+
+            function doEnterAction() {
+                // Disable form submission and auto-clear
+                event.preventDefault();
+
+                // Perform Check_all or Show_all based on checkbox
+                if(document.getElementById('eaShow').checked)
+                {
+                    document.forms[1].elements.show_all.click()
+                }
+                else if(document.getElementById('eaCheck').checked)
+                {
+                    document.forms[1].elements.check_all.click()
+                } 
+            }
+
+            //Define variables
+            var octet=new Array();
+            /*This array will hold the IP
+            address octets as follows
+             octet[0]         = subnet mask
+             octet[1]  - [4]  = problem address
+             octet[5]  - [7]  = network address octets 2-4
+             octet[8]  - [10] = first host address octets 2-4
+             octet[11] - [13] = last host address octets 2-4
+             octet[14] - [16] = broadcast address octets 2-4
+             octet[17] - [19] = next subnet octets 2-4 */
+
+            var i=0;                     //generic counter integers
+            var j=0;
+
+            //Start a new problem
+            function ClearForm(form){
+                //wipe out all data in octetArray
+                for(i=0; i <20; i++)
+                {
+                    octet[i] =0;
+                }                          //clear all data currently in the html form
+
+                form.networkOctet1.value     = "";   form.networkOctet2.value     = "";
+                form.networkOctet3.value     = "";   form.networkOctet4.value     = "";
+                form.firstHostOctet1.value   = "";   form.firstHostOctet2.value   = "";
+                form.firstHostOctet3.value   = "";   form.firstHostOctet4.value   = "";
+                form.lastHostOctet1.value    = "";   form.lastHostOctet2.value    = "";
+                form.lastHostOctet3.value    = "";   form.lastHostOctet4.value    = "";
+                form.broadcastOctet1.value   = "";   form.broadcastOctet2.value   = "";
+                form.broadcastOctet3.value   = "";   form.broadcastOctet4.value   = "";
+                form.networkAnswer1.value    = "";   form.networkAnswer2.value    = "";
+                form.networkAnswer3.value    = "";   form.networkAnswer4.value    = "";
+                form.firstHostAnswer1.value  = "";   form.firstHostAnswer2.value  = "";
+                form.firstHostAnswer3.value  = "";   form.firstHostAnswer4.value  = "";
+                form.lastHostAnswer1.value   = "";   form.lastHostAnswer2.value   = "";
+                form.lastHostAnswer3.value   = "";   form.lastHostAnswer4.value   = "";
+                form.broadcastAnswer1.value  = "";   form.broadcastAnswer2.value  = "";
+                form.broadcastAnswer3.value  = "";   form.broadcastAnswer4.value  = "";
+                form.nextsubnetAnswer1.value = "";   form.nextsubnetAnswer2.value = "";
+                form.nextsubnetAnswer3.value = "";   form.nextsubnetAnswer4.value = "";
+                form.networkOK.value         = "";   form.firstHostOK.value       = "";
+                form.lastHostOK.value        = "";   form.broadcastOK.value       = "";
+                form.nextsubnetOK.value      = "";   form.nextsubnetOctet1.value  = "";
+                form.nextsubnetOctet2.value  = "";   form.nextsubnetOctet3.value  = "";
+                form.nextsubnetOctet4.value  = "";
+
+                //create a new IP address problem
+
+                i=Math.floor(Math.random()*3);      //random number between 0 and 2 - select class
+                if (i==0){                          //class A network
+                    octet[0] = 8+Math.floor(Math.random()*22);   //subnet mask
+                    octet[1] = 1+Math.floor(Math.random()*126);  //first Octet
+                }
+                if (i==1){                          //class B network
+                    octet[0] = 16+Math.floor(Math.random()*14);   //subnet mask
+                    octet[1] = 128+Math.floor(Math.random()*63);  //first Octet
+                }
+                if (i==2){                          //class C network
+                    octet[0] = 24+Math.floor(Math.random()*6);   //subnet mask
+                    octet[1] = 192+Math.floor(Math.random()*31); //first Octet
+                }
+                octet[2] = Math.floor(Math.random()*255);
+                octet[3] = Math.floor(Math.random()*255);
+                octet[4] = Math.floor(Math.random()*255);
+
+                //display the problem
+
+                form.givenMask.value   = octet[0];
+                form.givenOctet1.value = octet[1];
+                form.givenOctet2.value = octet[2];
+                form.givenOctet3.value = octet[3];
+                form.givenOctet4.value = octet[4];
+                //fill the octet array with the correct values
+                CalculateOctets();
+                form.elements["networkOctet1"].focus();
+            }
+            //Display selected addresses
+            function Show(form,x){
+                GetProblem(form);
+                var hold = 0;
+                var tex = x;
+                var xloop = 1;
+                if(tex == 6){
+                    tex = 0;
+                    hold = 1;
+                    form.elements["new_problem"].focus();
+                }
+                while(xloop == 1)
+                {
+                    if(hold == 1){
+                        tex++;
+                    }else{
+                        xloop = 0;
+                    }
+                    switch(tex){
+                        case(1): form.networkAnswer1.value=octet[20];
+                            form.networkAnswer2.value=octet[5];
+                            form.networkAnswer3.value=octet[6];
+                            form.networkAnswer4.value=octet[7];
+                            break;
+                        case(2): form.firstHostAnswer1.value=octet[21];
+                            form.firstHostAnswer2.value=octet[8];
+                            form.firstHostAnswer3.value=octet[9];
+                            form.firstHostAnswer4.value=octet[10];
+                            break;
+                        case(3): form.lastHostAnswer1.value=octet[22];
+                            form.lastHostAnswer2.value=octet[11];
+                            form.lastHostAnswer3.value=octet[12];
+                            form.lastHostAnswer4.value=octet[13];
+                            break;
+                        case(4): form.broadcastAnswer1.value=octet[23];
+                            form.broadcastAnswer2.value=octet[14];
+                            form.broadcastAnswer3.value=octet[15];
+                            form.broadcastAnswer4.value=octet[16];
+                            break;
+                        case(5): form.nextsubnetAnswer1.value=octet[24];
+                            form.nextsubnetAnswer2.value=octet[17];
+                            form.nextsubnetAnswer3.value=octet[18];
+                            form.nextsubnetAnswer4.value=octet[19];
+                            break;
+                        default: hold = 0;
+                    }
+                }
+            }
+            //Check answer input
+            function Check(form,x){
+                GetProblem(form);
+                var hold = 0;
+                var tex = x;
+                var xloop = 1;
+                if(tex == 6){
+                    tex = 0;
+                    hold = 1;
+                    form.elements["show_all"].focus();
+                }
+                while(xloop == 1)
+                {
+                    if(hold == 1){
+                        tex++;
+                    }else{
+                        xloop = 0;
+                    }
+                    switch(tex){
+                        case(1): if( (form.networkOctet1.value == octet[20]) &&
+                                    (form.networkOctet2.value == octet[5]) &&
+                                    (form.networkOctet3.value == octet[6]) &&
+                                    (form.networkOctet4.value == octet[7]) ){
+                            form.networkOK.value="YES";
+                        }else{
+                            form.networkOK.value="NO";
+                        }
+                            break;
+                        case(2): if( (form.firstHostOctet1.value == octet[21]) &&
+                                    (form.firstHostOctet2.value == octet[8]) &&
+                                    (form.firstHostOctet3.value == octet[9]) &&
+                                    (form.firstHostOctet4.value == octet[10]) ){
+                            form.firstHostOK.value="YES";
+                        }else{
+                            form.firstHostOK.value="NO";
+                        }
+                            break;
+                        case(3): if( (form.lastHostOctet1.value == octet[22]) &&
+                                    (form.lastHostOctet2.value == octet[11]) &&
+                                    (form.lastHostOctet3.value == octet[12]) &&
+                                    (form.lastHostOctet4.value == octet[13]) ){
+                            form.lastHostOK.value="YES";
+                        }else{
+                            form.lastHostOK.value="NO";
+                        }
+                            break;
+                        case(4): if( (form.broadcastOctet1.value == octet[23]) &&
+                                    (form.broadcastOctet2.value == octet[14]) &&
+                                    (form.broadcastOctet3.value == octet[15]) &&
+                                    (form.broadcastOctet4.value == octet[16]) ){
+                            form.broadcastOK.value="YES";
+                        }else{
+                            form.broadcastOK.value="NO";
+                        }
+                            break;
+                        case(5): if( (form.nextsubnetOctet1.value == octet[24]) &&
+                                    (form.nextsubnetOctet2.value == octet[17]) &&
+                                    (form.nextsubnetOctet3.value == octet[18]) &&
+                                    (form.nextsubnetOctet4.value == octet[19]) ){
+                            form.nextsubnetOK.value="YES";
+                        }else{
+                            form.nextsubnetOK.value="NO";
+                        }
+                            break;
+                        default: hold = 0;
+                    }
+                }
+            }
+
+
+            //Check to see if user added their own problem
+            function GetProblem(form){
+                octet[0] = parseInt(form.givenMask.value);
+                octet[1] = parseInt(form.givenOctet1.value);
+                octet[2] = parseInt(form.givenOctet2.value);
+                octet[3] = parseInt(form.givenOctet3.value);
+                octet[4] = parseInt(form.givenOctet4.value);
+                CalculateOctets();
+            }
+
+            //Calculate all octets
+            function CalculateOctets(){
+                j=1;
+                i=octet[0]%8;
+                for(i=8-octet[0]%8; i>0; i--)       //couldn't find javascript exponential operator
+                {
+                    j=j*2;
+                }
+                if(octet[0] < 16){                  //working in first or second octet
+                    if(octet[0] < 8){        //working in first octect
+                        octet[21] = octet[20] = Math.floor(octet[1]/j)*j;
+                        octet[10] = 1;
+                        octet[11] = octet[14] = octet[5]+j-1;
+                        octet[23] = octet[22] = octet[21]+j-1;
+                        octet[12] = octet[15] = octet[16] =255;
+                        octet[11] = octet[14] = octet[17] =255;
+                        octet[13] = 254;
+                        octet[18] = octet[15];
+                        octet[24] = octet[23];
+                        octet[6] = 0;
+                        octet[9] = 0;
+                        octet[5] = 0;
+                        octet[8] = 0;
+                        octet[7] = 0;
+                        octet[19] = octet[16];
+                        if (octet[19]>254) {
+                            octet[19] = 0;
+                            octet[18] = octet[18]+1;
+                        }
+                        if (octet[18]>254) {
+                            octet[18] = 0;
+                            octet[17] = octet[17]+1;
+                        }
+                        if (octet[17]>254) {
+                            octet[17] = 0;
+                            if ((octet[23]+1)>255){
+                                octet[24] = 255;
+                            }else{
+                                octet[24] = (octet[23]+1);
+                            }
+                        }
+                        if((octet[23]==255) && (octet[14]==255) && (octet[15]==255) && (octet[16]==255) ){ //End of IP range
+                            octet[24] = 255;
+                            octet[17] = 255;
+                            octet[18] = 255;
+                            octet[19] = 255;
+                        }
+                    }else{             //working in second octet
+                        octet[5] = octet[8] = Math.floor(octet[2]/j)*j;
+                        octet[10] = 1;
+                        octet[11] = octet[14] = octet[5]+j-1;
+                        octet[12] = octet[15] = octet[16] =255;
+                        octet[20] = octet[1];
+                        octet[13] = 254;
+                        octet[20] = octet[1];
+                        octet[21] = octet[1];
+                        octet[22] = octet[1];
+                        octet[23] = octet[1];
+                        octet[24] = octet[1];
+                        octet[18] = octet[19] = 0;
+                        octet[6] = octet[9] = 0;
+                        octet[7] = 0;
+                        octet[17] = octet[14]+1;
+                        if (octet[17]>255) {
+                            octet[17] = 0;
+                            octet[24] = (octet[23]+1);
+                        }
+                    }
+                }else{
+                    if(octet[0] < 24){                //working in third octet
+                        octet[5]  = octet[8] = octet[11] = octet[14] = octet[2];
+                        octet[6]  = octet[9] = Math.floor(octet[3]/j)*j;
+                        octet[12] = octet[15] = octet[6]+j-1;
+                        octet[7]  = 0;
+                        octet[20] = octet[1];
+                        octet[10] = 1;
+                        octet[13] = 254;
+                        octet[16] = 255;
+                        octet[20] = octet[1];
+                        octet[21] = octet[1];
+                        octet[22] = octet[1];
+                        octet[23] = octet[1];
+                        octet[24] = octet[1];
+                        octet[19] = 0;
+                        octet[18] = octet[15]+1;
+                        octet[17] = octet[14];
+                        if (octet[18]>255) {
+                            octet[18] = 0;
+                            octet[17] = octet[17]+1;
+                        }
+                        if (octet[17]>255) {
+                            octet[17] = 0;
+                            octet[24] = octet[23]+1;
+                        }
+                    }else{                           //working in fourth octet
+                        octet[5]  = octet[8] = octet[11] = octet[14] = octet[2];
+                        octet[6]  = octet[9] = octet[12] = octet[15] = octet[3];
+                        octet[7]  = Math.floor(octet[4]/j)*j;
+                        octet[10] = octet[7]+1;
+                        octet[16] = octet[7]+j-1;
+                        octet[13] = octet[16]-1;
+                        octet[19] = octet[16]+1;
+                        octet[20] = octet[1];
+                        octet[21] = octet[1];
+                        octet[22] = octet[1];
+                        octet[23] = octet[1];
+                        octet[24] = octet[1];
+                        octet[18] = octet[15];
+                        octet[17] = octet[14];
+                        if (octet[19]>255) {
+                            octet[19] = 0;
+                            octet[18] = octet[18]+1;
+                        }
+                        if (octet[18]>255) {
+                            octet[18] = 0;
+                            octet[17] = octet[17]+1;
+                        }
+                        if (octet[17]>255) {
+                            octet[17] = 0;
+                            octet[24] = octet[23]+1;
+                        }
+                    }
+                }
+            }
+
+        </script>
+    </head>
+    <body>
+        <h1>
+            IPv4 Subnetting Practice
+        </h1>
+        <div class="contentwrap">
+            <ul>
+                <li> Click on the <strong><code>[New Problem]</code></strong> button to start the exercise</li>
+                <li> Solve the five attributes below for the Target IP and CIDR</li>
+                <li> Click <strong><code>[Check]</code></strong> to check if your answer was correct</li>
+                <li> Click <strong><code>[Show]</code></strong> to view correct answers</li>
+                <li> Type "." or "/" in any input box to jump to the next box <em>(desktop only)</em></li>
+                <li> Keyboard <strong><code>[ENTER]</code></strong> button will perform following action: </li>
+                <div>
+                    <form>
+                        <input id ="eaShow" type="radio" name="enterAction" value="showAll" checked>
+                        <label for="eaShow">Show all</label>&emsp;&emsp;&emsp;
+                        <input id ="eaCheck" type="radio" name="enterAction" value="checkAll">
+                        <label for="eaCheck">Check All</label>
+                    </form>
+                </div>
+            </ul>
+
+            <form onsubmit="doEnterAction()">
+                <table border="3">
+                    <tbody>
+                        <tr>
+                            <td>  <input type="button"  value="New Problem" onClick="ClearForm(this.form)" name="new_problem"></td>
+                            <td align="center" rowspan="2"></td>
+                            <th> Target IP address </th>
+                            <td><input type="tel" name="givenOctet1"  size="3" maxlength=3  class="userinput"> <strong>.</strong>
+                                <input type="tel" name="givenOctet2"  size="3" maxlength=3  class="userinput"> <strong>.</strong>
+                                <input type="tel" name="givenOctet3"  size="3" maxlength=3  class="userinput"> <strong>.</strong>
+                                <input type="tel" name="givenOctet4"  size="3" maxlength=3  class="userinput"> <strong>/</strong>
+                                <input type="tel" name="givenMask"    size="2" maxlength=2  class="userinput">
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <br>
+                <table border="3">
+                    <tbody>
+                        <tr>
+                            <td></td>
+                            <th>IP address</th>
+                            <th>Check/Show</th>
+                            <th>Answer</th>
+                            <th>Correct?</th>
+                        </tr>
+                        <tr>
+                            <th>Network</th>
+                            <td><input type="tel" name="networkOctet1" size="3" maxlength=3 class="userinput"> .
+                                <input type="tel" name="networkOctet2" size="3" maxlength=3 class="userinput"> .
+                                <input type="tel" name="networkOctet3" size="3" maxlength=3 class="userinput"> .
+                                <input type="tel" name="networkOctet4" size="3" maxlength=3 class="userinput">
+                            </td>
+                            <td align="center">
+                                <input type="button" value="Check" onclick="Check(this.form,1)">
+                                <input type="button" value="Show" onclick="Show(this.form,1)"></td>
+                            <td><input type="tel" name="networkAnswer1" size="3" disabled > .
+                                <input type="tel" name="networkAnswer2" size="3" disabled > .
+                                <input type="tel" name="networkAnswer3" size="3" disabled> .
+                                <input type="tel" name="networkAnswer4" size="3" disabled>
+                            </td>
+                            <td><input type="text" name="networkOK" size="3" disabled></td>
+                        </tr>
+                        <tr>
+                            <th>First Host</th>
+                            <td><input type="tel" name="firstHostOctet1" size="3" maxlength=3 class="userinput"> .
+                                <input type="tel" name="firstHostOctet2" size="3" maxlength=3 class="userinput"> .
+                                <input type="tel" name="firstHostOctet3" size="3" maxlength=3 class="userinput"> .
+                                <input type="tel" name="firstHostOctet4" size="3" maxlength=3 class="userinput">
+                            </td>
+                            <td align="center">
+                                <input type="button" value="Check" onclick="Check(this.form,2)">
+                                <input type="button" value="Show" onclick="Show(this.form,2)"></td>
+                            <td><input type="tel" name="firstHostAnswer1" size="3" disabled> .
+                                <input type="tel" name="firstHostAnswer2" size="3" disabled> .
+                                <input type="tel" name="firstHostAnswer3" size="3" disabled> .
+                                <input type="tel" name="firstHostAnswer4" size="3" disabled>
+                            </td>
+                            <td><input type="text" name="firstHostOK" size="3" disabled></td>
+                        <tr>
+                            <th>Last Host</th>
+                            <td><input type="tel" name="lastHostOctet1" size="3" maxlength=3 class="userinput"> .
+                                <input type="tel" name="lastHostOctet2" size="3" maxlength=3 class="userinput"> .
+                                <input type="tel" name="lastHostOctet3" size="3" maxlength=3 class="userinput"> .
+                                <input type="tel" name="lastHostOctet4" size="3" maxlength=3 class="userinput">
+                            </td>
+                            <td align="center">
+                                <input type="button" value="Check" onclick="Check(this.form,3)">
+                                <input type="button" value="Show"  onclick="Show(this.form,3)"></td>
+                            <td><input type="tel" name="lastHostAnswer1" size="3" disabled> .
+                                <input type="tel" name="lastHostAnswer2" size="3" disabled> .
+                                <input type="tel" name="lastHostAnswer3" size="3" disabled> .
+                                <input type="tel" name="lastHostAnswer4" size="3" disabled>
+                            </td>
+                            <td><input type="text" name="lastHostOK" size="3" disabled></td>
+                        <tr>
+                            <th>Broadcast</th>
+                            <td><input type="tel" name="broadcastOctet1" size="3" maxlength=3 class="userinput"> .
+                                <input type="tel" name="broadcastOctet2" size="3" maxlength=3 class="userinput"> .
+                                <input type="tel" name="broadcastOctet3" size="3" maxlength=3 class="userinput"> .
+                                <input type="tel" name="broadcastOctet4" size="3" maxlength=3 class="userinput">
+                            </td>
+                            <td align="center">
+                                <input type="button" value="Check" onclick="Check(this.form,4)">
+                                <input type="button" value="Show" onclick="Show(this.form,4)"></td>
+                            <td><input type="tel" name="broadcastAnswer1" size="3" disabled> .
+                                <input type="tel" name="broadcastAnswer2" size="3" disabled> .
+                                <input type="tel" name="broadcastAnswer3" size="3" disabled> .
+                                <input type="tel" name="broadcastAnswer4" size="3" disabled>
+                            </td>
+                            <td><input type="text" name="broadcastOK" size="3" disabled></td>
+                        </tr>
+                        <tr>
+                            <th>Next Subnet</th>
+                            <td><input type="tel" name="nextsubnetOctet1" size="3" maxlength=3 class="userinput"> .
+                                <input type="tel" name="nextsubnetOctet2" size="3" maxlength=3 class="userinput"> .
+                                <input type="tel" name="nextsubnetOctet3" size="3" maxlength=3 class="userinput"> .
+                                <input type="tel" name="nextsubnetOctet4" size="3" maxlength=3 class="userinput">
+                            </td>
+                            <td align="center">
+                                <input type="button" value="Check" onclick="Check(this.form,5)">
+                                <input type="button" value="Show" onclick="Show(this.form,5)"></td>
+                            <td><input type="tel" name="nextsubnetAnswer1" size="3" disabled> .
+                                <input type="tel" name="nextsubnetAnswer2" size="3" disabled> .
+                                <input type="tel" name="nextsubnetAnswer3" size="3" disabled> .
+                                <input type="tel" name="nextsubnetAnswer4" size="3" disabled>
+                            </td>
+                            <td><input type="text" name="nextsubnetOK" size="3" disabled></td>
+                        </tr>
+                        <tr>
+                            <th colspan="2" align="center">Check or Show ALL</th>
+                            <td align="center">
+                                <input type="button" value="Check" onclick="Check(this.form,6)" name="check_all">
+                                <input type="button" value="Show" onclick="Show(this.form,6)" name="show_all"></td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+                <input type="submit" style="border:0; padding:0; font-size:0" tabindex="-1">
+            </form>
+
+            <div style="font-size:0.6em; color:#aaa;">
+                <p>
+                    v1.5
+                </p>
+            </div>
+        </div>
+
+        <script>
+            // These tasks must be done after all HTML loads
+
+            // Create array of all userinput boxes:
+            var uiBoxes = document.querySelectorAll('.userinput');
+
+            // Create an array of all the "name" fields of userinput Boxes:            
+            for (i=0 ; i<uiBoxes.length ; i++){
+                uiNames.push(uiBoxes[i].name);
+
+                //Add OnFocus and OnKeyDown function to each .userinput element:
+                uiBoxes[i].setAttribute('onfocus',"uiInput(this)");
+                uiBoxes[i].setAttribute('onkeydown',"jumpdot(event)");
+            }
+            // When Page is loaded, generate a new problem to start:
+            document.forms[1].elements.new_problem.click();
+        </script>
+    </body>
+</html>
+
